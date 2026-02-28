@@ -1,0 +1,5 @@
+# Ignore everything in the photos folder
+photos/*
+
+# But do not ignore the .gitkeep file
+!photos/.gitkeep

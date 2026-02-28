@@ -30,8 +30,7 @@ To make the slideshow launch automatically 60 seconds after the desktop loads, e
    ```ini
    [autostart]
    slideshow = bash -c "sleep 60 && chromium --kiosk --incognito --noerrdialogs --ozone-platform=wayland --password-store=basic --touch-events=enabled http://localhost:8080/index.php"
-
-```
+   ```
 
 ## Screen Power Management (15-Minute Timeout)
 
@@ -56,4 +55,20 @@ If you need to run it manually via SSH:
 ```bash
 WAYLAND_DISPLAY=wayland-0 chromium --kiosk --incognito --password-store=basic --touch-events=enabled http://localhost:8080/index.php
 
+```
+
+### How to push this update to your Git:
+Since you just modified the file, remember to swap permissions to `pi`, push, and swap back:
+
+```bash
+# 1. Take ownership
+sudo chown -R pi:pi /var/www/html
+
+# 2. Git steps
+git add README.md
+git commit -m "Update README with automation and power management"
+git push origin main
+
+# 3. Give ownership back to Apache
+sudo chown -R www-data:www-data /var/www/html
 ```

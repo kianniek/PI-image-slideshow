@@ -1,45 +1,28 @@
 <?php
-
 $target_dir = "photos/";
+if (!file_exists($target_dir)) { mkdir($target_dir, 0775, true); }
 
-
-// 1. Handle File Uploads (support multiple files)
+// 1. Handle File Uploads
 if(isset($_FILES['image'])){
-    $allowed = array("jpg", "jpeg", "png", "gif");
     $files = $_FILES['image'];
-    $count = is_array($files['name']) ? count($files['name']) : 1;
-    $success = 0;
-    $fail = 0;
-    $messages = [];
+    $count = count($files['name']);
     for($i = 0; $i < $count; $i++) {
-        $file_name = is_array($files['name']) ? basename($files['name'][$i]) : basename($files['name']);
-        $tmp_name = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
-        $target_file = $target_dir . $file_name;
-        $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
-        if(in_array($imageFileType, $allowed)) {
-            if(move_uploaded_file($tmp_name, $target_file)) {
-                $success++;
-                $messages[] = "<span style='color:green;'>Uploaded: $file_name</span>";
-            } else {
-                $fail++;
-                $messages[] = "<span style='color:red;'>Failed: $file_name</span>";
-            }
-        } else {
-            $fail++;
-            $messages[] = "<span style='color:red;'>Invalid type: $file_name</span>";
+        if ($files['error'][$i] === 0) {
+            $file_name = time() . "_" . basename($files['name'][$i]); // Added timestamp to prevent overwriting
+            $target_file = $target_dir . $file_name;
+            move_uploaded_file($files['tmp_name'][$i], $target_file);
         }
     }
-    if($success > 0) echo "<p>" . implode("<br>", $messages) . "</p>";
-    else echo "<p>" . implode("<br>", $messages) . "</p>";
+    header("Location: upload.php"); // Refresh to clear POST data
+    exit;
 }
 
 // 2. Handle Deletions
 if(isset($_GET['delete'])){
     $file_to_delete = $target_dir . basename($_GET['delete']);
-    if(file_exists($file_to_delete)) {
-        unlink($file_to_delete);
-        echo "<p style='color:orange;'>Deleted: " . $_GET['delete'] . "</p>";
-    }
+    if(file_exists($file_to_delete)) { unlink($file_to_delete); }
+    header("Location: upload.php");
+    exit;
 }
 ?>
 
@@ -48,101 +31,64 @@ if(isset($_GET['delete'])){
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-        .photo-item { 
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px; border-bottom: 1px solid #ddd; 
-        }
-        .delete-btn { color: white; background: #ff4444; padding: 5px 10px; text-decoration: none; border-radius: 5px; }
-        .upload-section { background: #f4f4f4; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        img { border-radius: 5px; }
+        body { font-family: system-ui, sans-serif; padding: 15px; background: #eee; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        #drop-area { border: 2px dashed #ccc; border-radius: 10px; padding: 20px; text-align: center; transition: 0.3s; cursor: pointer; }
+        #drop-area.highlight { border-color: #007bff; background: #e7f1ff; }
+        .photo-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: white; }
+        .delete-btn { color: white; background: #ff4444; padding: 8px 12px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+        .btn-primary { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; width: 100%; font-size: 16px; margin-top: 10px; }
+        img.preview { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-
-    <div class="upload-section">
+    <div class="card">
         <h2>Upload Photos</h2>
-        <form id="uploadForm" action="" method="POST" enctype="multipart/form-data">
-            <div id="drop-area">
-                <p>Drag & drop images here or click to select</p>
-                <input type="file" id="fileElem" name="image[]" multiple accept="image/*" style="display:none" required>
-                <button type="button" id="fileSelectBtn">Select Images</button>
+        <form action="" method="POST" enctype="multipart/form-data">
+            <div id="drop-area" onclick="document.getElementById('fileElem').click()">
+                <p>Tap to select or Drag & Drop</p>
+                <input type="file" id="fileElem" name="image[]" multiple accept="image/*" style="display:none" onchange="handleFiles(this.files)">
                 <div id="gallery"></div>
             </div>
-            <input type="submit" value="Upload" style="margin-top:15px;">
+            <button type="submit" class="btn-primary">Start Upload</button>
         </form>
-        <br>
-        <a href="index.php">← Back to Slideshow</a>
+        <p style="text-align:center;"><a href="index.php">View Slideshow</a></p>
     </div>
 
-
-    <h2>Current Photos</h2>
+    <h3>Manage Library</h3>
     <?php
     $files = glob($target_dir . "*.{jpg,png,gif,jpeg}", GLOB_BRACE);
     foreach($files as $file) {
         $name = basename($file);
         echo "<div class='photo-item'>";
-        echo "<span><img src='$file' width='50' height='50' style='object-fit:cover; vertical-align:middle; margin-right:10px;'> $name</span>";
-        echo "<a class='delete-btn' href='?delete=$name' onclick='return confirm(\"Delete this photo?\")'>Delete</a>";
+        echo "<span><img src='$file' class='preview' style='vertical-align:middle; margin-right:10px;'> $name</span>";
+        echo "<a class='delete-btn' href='?delete=$name' onclick='return confirm(\"Delete?\")'>Delete</a>";
         echo "</div>";
     }
     ?>
 
+    <script>
+        let dropArea = document.getElementById('drop-area');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, (ev) => { ev.preventDefault(); ev.stopPropagation(); }));
+        ['dragenter', 'dragover'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.add('highlight')));
+        ['dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.remove('highlight')));
+
+        function handleFiles(files) {
+            let gallery = document.getElementById('gallery');
+            gallery.innerHTML = "";
+            [...files].forEach(file => {
+                let reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onloadend = () => {
+                    let img = document.createElement('img');
+                    img.src = reader.result;
+                    img.className = "preview";
+                    img.style.margin = "5px";
+                    gallery.appendChild(img);
+                }
+            });
+        }
+    </script>
 </body>
-<script>
-// Drag & Drop and Preview logic
-const dropArea = document.getElementById('drop-area');
-const fileElem = document.getElementById('fileElem');
-const fileSelectBtn = document.getElementById('fileSelectBtn');
-const gallery = document.getElementById('gallery');
-
-['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropArea.addEventListener(eventName, preventDefaults, false)
-});
-
-function preventDefaults (e) {
-    e.preventDefault();
-    e.stopPropagation();
-}
-
-['dragenter', 'dragover'].forEach(eventName => {
-    dropArea.addEventListener(eventName, () => dropArea.classList.add('highlight'), false)
-});
-['dragleave', 'drop'].forEach(eventName => {
-    dropArea.addEventListener(eventName, () => dropArea.classList.remove('highlight'), false)
-});
-
-dropArea.addEventListener('drop', handleDrop, false);
-fileSelectBtn.addEventListener('click', () => fileElem.click());
-fileElem.addEventListener('change', updateGallery);
-
-function handleDrop(e) {
-    let dt = e.dataTransfer;
-    let files = dt.files;
-    fileElem.files = files;
-    updateGallery();
-}
-
-function updateGallery() {
-    gallery.innerHTML = '';
-    const files = fileElem.files;
-    if (!files.length) return;
-    for (let i = 0; i < files.length; i++) {
-        let file = files[i];
-        if (!file.type.startsWith('image/')) continue;
-        let reader = new FileReader();
-        reader.onload = (e) => {
-            let img = document.createElement('img');
-            img.src = e.target.result;
-            img.style.width = '60px';
-            img.style.height = '60px';
-            img.style.objectFit = 'cover';
-            img.style.margin = '5px';
-            gallery.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-    }
-}
-</script>
 </html>

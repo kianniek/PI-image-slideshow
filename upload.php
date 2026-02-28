@@ -1,22 +1,36 @@
 <?php
+
 $target_dir = "photos/";
 
-// 1. Handle File Uploads
-if(isset($_FILES['image'])){
-    $file_name = basename($_FILES['image']['name']);
-    $target_file = $target_dir . $file_name;
-    
-    // Basic check: only allow common image formats
-    $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
-    $allowed = array("jpg", "jpeg", "png", "gif");
 
-    if(in_array($imageFileType, $allowed)) {
-        if(move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
-            echo "<p style='color:green;'>Uploaded: $file_name</p>";
+// 1. Handle File Uploads (support multiple files)
+if(isset($_FILES['image'])){
+    $allowed = array("jpg", "jpeg", "png", "gif");
+    $files = $_FILES['image'];
+    $count = is_array($files['name']) ? count($files['name']) : 1;
+    $success = 0;
+    $fail = 0;
+    $messages = [];
+    for($i = 0; $i < $count; $i++) {
+        $file_name = is_array($files['name']) ? basename($files['name'][$i]) : basename($files['name']);
+        $tmp_name = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
+        $target_file = $target_dir . $file_name;
+        $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
+        if(in_array($imageFileType, $allowed)) {
+            if(move_uploaded_file($tmp_name, $target_file)) {
+                $success++;
+                $messages[] = "<span style='color:green;'>Uploaded: $file_name</span>";
+            } else {
+                $fail++;
+                $messages[] = "<span style='color:red;'>Failed: $file_name</span>";
+            }
+        } else {
+            $fail++;
+            $messages[] = "<span style='color:red;'>Invalid type: $file_name</span>";
         }
-    } else {
-        echo "<p style='color:red;'>Error: Only JPG, PNG & GIF allowed.</p>";
     }
+    if($success > 0) echo "<p>" . implode("<br>", $messages) . "</p>";
+    else echo "<p>" . implode("<br>", $messages) . "</p>";
 }
 
 // 2. Handle Deletions
@@ -46,15 +60,22 @@ if(isset($_GET['delete'])){
 </head>
 <body>
 
+
     <div class="upload-section">
-        <h2>Upload Photo</h2>
-        <form action="" method="POST" enctype="multipart/form-data">
-            <input type="file" name="image" required>
-            <input type="submit" value="Upload">
+        <h2>Upload Photos</h2>
+        <form id="uploadForm" action="" method="POST" enctype="multipart/form-data">
+            <div id="drop-area">
+                <p>Drag & drop images here or click to select</p>
+                <input type="file" id="fileElem" name="image[]" multiple accept="image/*" style="display:none" required>
+                <button type="button" id="fileSelectBtn">Select Images</button>
+                <div id="gallery"></div>
+            </div>
+            <input type="submit" value="Upload" style="margin-top:15px;">
         </form>
         <br>
         <a href="index.php">← Back to Slideshow</a>
     </div>
+
 
     <h2>Current Photos</h2>
     <?php
@@ -69,4 +90,59 @@ if(isset($_GET['delete'])){
     ?>
 
 </body>
+<script>
+// Drag & Drop and Preview logic
+const dropArea = document.getElementById('drop-area');
+const fileElem = document.getElementById('fileElem');
+const fileSelectBtn = document.getElementById('fileSelectBtn');
+const gallery = document.getElementById('gallery');
+
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false)
+});
+
+function preventDefaults (e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, () => dropArea.classList.add('highlight'), false)
+});
+['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, () => dropArea.classList.remove('highlight'), false)
+});
+
+dropArea.addEventListener('drop', handleDrop, false);
+fileSelectBtn.addEventListener('click', () => fileElem.click());
+fileElem.addEventListener('change', updateGallery);
+
+function handleDrop(e) {
+    let dt = e.dataTransfer;
+    let files = dt.files;
+    fileElem.files = files;
+    updateGallery();
+}
+
+function updateGallery() {
+    gallery.innerHTML = '';
+    const files = fileElem.files;
+    if (!files.length) return;
+    for (let i = 0; i < files.length; i++) {
+        let file = files[i];
+        if (!file.type.startsWith('image/')) continue;
+        let reader = new FileReader();
+        reader.onload = (e) => {
+            let img = document.createElement('img');
+            img.src = e.target.result;
+            img.style.width = '60px';
+            img.style.height = '60px';
+            img.style.objectFit = 'cover';
+            img.style.margin = '5px';
+            gallery.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+    }
+}
+</script>
 </html>

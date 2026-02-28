@@ -30,8 +30,7 @@ To make the slideshow launch automatically 60 seconds after the desktop loads, e
    ```ini
    [autostart]
    slideshow = bash -c "sleep 60 && chromium --kiosk --incognito --noerrdialogs --ozone-platform=wayland --password-store=basic --touch-events=enabled http://localhost:8080/index.php"
-
-```
+   ```
 
 ## Screen Power Management (15-Minute Timeout)
 

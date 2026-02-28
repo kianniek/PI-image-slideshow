@@ -1,28 +1,31 @@
 <?php
 $target_dir = "photos/";
-if (!file_exists($target_dir)) { mkdir($target_dir, 0775, true); }
 
 // 1. Handle File Uploads
 if(isset($_FILES['image'])){
-    $files = $_FILES['image'];
-    $count = count($files['name']);
-    for($i = 0; $i < $count; $i++) {
-        if ($files['error'][$i] === 0) {
-            $file_name = time() . "_" . basename($files['name'][$i]); // Added timestamp to prevent overwriting
-            $target_file = $target_dir . $file_name;
-            move_uploaded_file($files['tmp_name'][$i], $target_file);
+    $file_name = time() . "_" . basename($_FILES['image']['name']);
+    $target_file = $target_dir . $file_name;
+    
+    // Basic check: only allow common image formats
+    $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
+    $allowed = array("jpg", "jpeg", "png", "gif");
+
+    if(in_array($imageFileType, $allowed)) {
+        if(move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
+            echo "<p style='color:green;'>Uploaded: $file_name</p>";
         }
+    } else {
+        echo "<p style='color:red;'>Error: Only JPG, PNG & GIF allowed.</p>";
     }
-    header("Location: upload.php"); // Refresh to clear POST data
-    exit;
 }
 
 // 2. Handle Deletions
 if(isset($_GET['delete'])){
     $file_to_delete = $target_dir . basename($_GET['delete']);
-    if(file_exists($file_to_delete)) { unlink($file_to_delete); }
-    header("Location: upload.php");
-    exit;
+    if(file_exists($file_to_delete)) {
+        unlink($file_to_delete);
+        echo "<p style='color:orange;'>Deleted: " . $_GET['delete'] . "</p>";
+    }
 }
 ?>
 
@@ -31,64 +34,39 @@ if(isset($_GET['delete'])){
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: system-ui, sans-serif; padding: 15px; background: #eee; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        #drop-area { border: 2px dashed #ccc; border-radius: 10px; padding: 20px; text-align: center; transition: 0.3s; cursor: pointer; }
-        #drop-area.highlight { border-color: #007bff; background: #e7f1ff; }
-        .photo-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: white; }
-        .delete-btn { color: white; background: #ff4444; padding: 8px 12px; text-decoration: none; border-radius: 6px; font-weight: bold; }
-        .btn-primary { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; width: 100%; font-size: 16px; margin-top: 10px; }
-        img.preview { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; }
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+        .photo-item { 
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px; border-bottom: 1px solid #ddd; 
+        }
+        .delete-btn { color: white; background: #ff4444; padding: 5px 10px; text-decoration: none; border-radius: 5px; }
+        .upload-section { background: #f4f4f4; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        img { border-radius: 5px; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>Upload Photos</h2>
+    <div class="upload-section">
+        <h2>Upload Photo</h2>
         <form action="" method="POST" enctype="multipart/form-data">
-            <div id="drop-area" onclick="document.getElementById('fileElem').click()">
-                <p>Tap to select or Drag & Drop</p>
-                <input type="file" id="fileElem" name="image[]" multiple accept="image/*" style="display:none" onchange="handleFiles(this.files)">
-                <div id="gallery"></div>
-            </div>
-            <button type="submit" class="btn-primary">Start Upload</button>
+            <input type="file" name="image" required>
+            <input type="submit" value="Upload">
         </form>
-        <p style="text-align:center;"><a href="index.php">View Slideshow</a></p>
+        <br>
+        <a href="index.php">← Back to Slideshow</a>
     </div>
 
-    <h3>Manage Library</h3>
+    <h2>Current Photos</h2>
     <?php
     $files = glob($target_dir . "*.{jpg,png,gif,jpeg}", GLOB_BRACE);
     foreach($files as $file) {
         $name = basename($file);
         echo "<div class='photo-item'>";
-        echo "<span><img src='$file' class='preview' style='vertical-align:middle; margin-right:10px;'> $name</span>";
-        echo "<a class='delete-btn' href='?delete=$name' onclick='return confirm(\"Delete?\")'>Delete</a>";
+        echo "<span><img src='$file' width='50' height='50' style='object-fit:cover; vertical-align:middle; margin-right:10px;'> $name</span>";
+        echo "<a class='delete-btn' href='?delete=$name' onclick='return confirm(\"Delete this photo?\")'>Delete</a>";
         echo "</div>";
     }
     ?>
 
-    <script>
-        let dropArea = document.getElementById('drop-area');
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, (ev) => { ev.preventDefault(); ev.stopPropagation(); }));
-        ['dragenter', 'dragover'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.add('highlight')));
-        ['dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.remove('highlight')));
-
-        function handleFiles(files) {
-            let gallery = document.getElementById('gallery');
-            gallery.innerHTML = "";
-            [...files].forEach(file => {
-                let reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onloadend = () => {
-                    let img = document.createElement('img');
-                    img.src = reader.result;
-                    img.className = "preview";
-                    img.style.margin = "5px";
-                    gallery.appendChild(img);
-                }
-            });
-        }
-    </script>
 </body>
 </html>
